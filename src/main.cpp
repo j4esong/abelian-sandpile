@@ -35,7 +35,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window, double deltaTime);
 void renderCube();
-void renderScene(const Shader &shader);
+void renderScene(const Shader &shader, const Sandpile &pile);
 
 int main()
 {
@@ -133,6 +133,10 @@ int main()
 	//set movespeed
 	camera.moveSpeed = 5.0;
 
+	//initialize sandpile object
+	Sandpile pile(20, 20);
+	pile.fillRand();
+
 	//record time
 	double lastTime = glfwGetTime();
 
@@ -152,7 +156,7 @@ int main()
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
-		renderScene(simpleDepthShader);
+		renderScene(simpleDepthShader, pile);
 
 		//reset viewport
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -171,7 +175,7 @@ int main()
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 
-		renderScene(lightingShader);
+		renderScene(lightingShader, pile);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -291,7 +295,7 @@ void renderCube()
 	glBindVertexArray(0);
 }
 
-void renderScene(const Shader &shader)
+void renderScene(const Shader &shader, const Sandpile &pile)
 {
 	//set plate material attributes
 	glm::mat4 model = glm::mat4(1.0f);
@@ -310,21 +314,15 @@ void renderScene(const Shader &shader)
 	shader.setFloat(10.0f, "material.shininess");
 
 	//render cubes according to sandpile matrix
-	model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-	shader.setMat4(model, "model");
-
-	renderCube();
-
-	model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 1.0f));
-	shader.setMat4(model, "model");
-
-	renderCube();
-
-	model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(19.0f, 0.0f, 19.0f));
-	shader.setMat4(model, "model");
-
-	renderCube();
+	for (int i = 0; i < pile.width; i++) {
+		for (int j = 0; j < pile.height; j++) {
+			int num = pile.plate[i][j];
+			for (int k = 0; k < num; k++) {
+				model = glm::mat4(1.0f);
+				model = glm::translate(model, glm::vec3(i, k, j));
+				shader.setMat4(model, "model");
+				renderCube();
+			}
+		}
+	}
 }
