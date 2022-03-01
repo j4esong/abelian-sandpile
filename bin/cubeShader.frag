@@ -18,6 +18,7 @@ struct Light {
 
 in vec3 FragPos;  
 in vec3 Normal;  
+in vec3 ModelPos;
 in vec4 FragPosLightSpace;
 
 uniform vec3 viewPos;
@@ -53,6 +54,13 @@ void main()
     // ambient
     vec3 ambient = light.ambient * material.ambient;
   	
+    //add border
+    bool right = abs(ModelPos.x) >= 0.49;
+    bool top = abs(ModelPos.y) >= 0.49;
+    bool back = abs(ModelPos.z) >= 0.49;
+    if (right ? (top || back) : (top && back))
+        ambient = vec3(0.15, 0.15, 0.15);
+
     // diffuse 
     vec3 norm = normalize(Normal);
     float diff = max(dot(norm, lightDir), 0.0);
