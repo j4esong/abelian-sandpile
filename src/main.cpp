@@ -11,20 +11,181 @@
 
 #include "shader.hpp"
 #include "camera.hpp"
+#include "sandpile.hpp"
 
+//screen dimensions
 const int SCREEN_WIDTH = 1200;
 const int SCREEN_HEIGHT = 675;
 
+//initial camera settings
 Camera camera(glm::vec3(-6.5f, 10.0f, -6.5f), 45.0f, 0.0f);
+
+//directional lighting
 const glm::vec3 lightDir(1.2f, 2.5f, 2.0f);
 
 float lastX = SCREEN_WIDTH / 2.0;
 float lastY = SCREEN_HEIGHT / 2.0;
-
 bool mouseMoved = false;
+
 unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
 unsigned int plateVAO;
+
+void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void processInput(GLFWwindow *window, double deltaTime);
+void renderCube();
+void renderScene(const Shader &shader);
+
+int main()
+{
+	//initialize GLFW
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	//make window
+	GLFWwindow *window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandpile", nullptr, nullptr);
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetCursorPosCallback(window, mouse_callback);
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	//initialize GLEW
+	glewExperimental = GL_TRUE;
+	glewInit();
+
+	glEnable(GL_DEPTH_TEST);
+
+	//compile shaders
+	Shader lightingShader("cubeShader.vert", "cubeShader.frag");
+	Shader simpleDepthShader("depthShader.vert", "depthShader.frag");
+
+	float plateVertices[] = {
+		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
+		-0.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+
+		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+		19.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+	};
+
+	//set up plate VAO
+	unsigned int plateVBO;
+	glGenVertexArrays(1, &plateVAO);
+	glGenBuffers(1, &plateVBO);
+	glBindVertexArray(plateVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, plateVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(plateVertices), plateVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glBindVertexArray(0);
+
+	//set up depth texture
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	unsigned int depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+
+	unsigned int depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	//attach depth texture as FBO's depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	//light space calculations
+	glm::mat4 lightProjection, lightView;
+	glm::mat4 lightSpaceMatrix;
+	float near_plate = -10.5f, far_plate = 20.5f;
+	lightProjection = glm::ortho(-20.0f, 20.0f, -10.0f, 10.0f, near_plate, far_plate);
+	lightView = glm::lookAt(lightDir * 1.0f + glm::vec3(10, 0, 10), glm::vec3(0.0f) + glm::vec3(10, 0, 10), glm::vec3(0.0, 1.0, 0.0));
+	lightSpaceMatrix = lightProjection * lightView;
+
+	//set depth attributes
+	simpleDepthShader.use();
+	simpleDepthShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+
+	//set light attributes
+	lightingShader.use();
+	lightingShader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "light.ambient");
+	lightingShader.setVec3(glm::vec3(0.5f, 0.5f, 0.5f), "light.diffuse");
+	lightingShader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "light.specular");
+	lightingShader.setVec3(lightDir, "light.direction");
+	lightingShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+	lightingShader.setInt(1, "shadowMap");
+
+	//set movespeed
+	camera.moveSpeed = 5.0;
+
+	//record time
+	double lastTime = glfwGetTime();
+
+	//main render loop
+	while (!glfwWindowShouldClose(window)) {
+		double time = glfwGetTime();
+		double deltaTime = time - lastTime;
+		lastTime = time;
+
+		//input
+		processInput(window, deltaTime);
+
+		//render scene from light's point of view
+		simpleDepthShader.use();
+
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		renderScene(simpleDepthShader);
+
+		//reset viewport
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//render normally
+		lightingShader.use();
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = camera.getViewMatrix();
+		lightingShader.setMat4(projection, "projection");
+		lightingShader.setMat4(view, "view");
+		lightingShader.setVec3(camera.pos, "viewPos");
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+
+		renderScene(lightingShader);
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	//clean up
+	glDeleteVertexArrays(1, &cubeVAO);
+	glDeleteVertexArrays(1, &plateVAO);
+	glDeleteBuffers(1, &cubeVBO);
+	glDeleteBuffers(1, &plateVBO);
+
+	glfwTerminate();
+	return 0;
+}
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
@@ -61,6 +222,7 @@ void processInput(GLFWwindow *window, double deltaTime)
 		camera.processKeyboard(UP, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
 		camera.processKeyboard(DOWN, deltaTime);
+	//prevent camera from moving below plate
 	if (camera.pos.y < 0)
 		camera.pos.y = 0;
 }
@@ -165,154 +327,4 @@ void renderScene(const Shader &shader)
 	shader.setMat4(model, "model");
 
 	renderCube();
-}
-
-int main()
-{
-	//initialize GLFW
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	//make window
-	GLFWwindow *window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandpile", nullptr, nullptr);
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
-
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-	//initialize GLEW
-	glewExperimental = GL_TRUE;
-	glewInit();
-
-	glEnable(GL_DEPTH_TEST);
-
-	//compile shaders
-	Shader lightingShader("cubeShader.vert", "cubeShader.frag");
-	Shader simpleDepthShader("depthShader.vert", "depthShader.frag");
-
-	float plateVertices[] = {
-		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-
-		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-		19.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-	};
-
-	//setup plate VAO
-	unsigned int plateVBO;
-	glGenVertexArrays(1, &plateVAO);
-	glGenBuffers(1, &plateVBO);
-	glBindVertexArray(plateVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, plateVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(plateVertices), plateVertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
-	glBindVertexArray(0);
-
-	//setup depth texture
-	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-	unsigned int depthMapFBO;
-	glGenFramebuffers(1, &depthMapFBO);
-
-	unsigned int depthMap;
-	glGenTextures(1, &depthMap);
-	glBindTexture(GL_TEXTURE_2D, depthMap);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-	//attach depth texture as FBO's depth buffer
-	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	//light space calculations
-	glm::mat4 lightProjection, lightView;
-	glm::mat4 lightSpaceMatrix;
-	float near_plate = -10.5f, far_plate = 20.5f;
-	lightProjection = glm::ortho(-20.0f, 20.0f, -10.0f, 10.0f, near_plate, far_plate);
-	lightView = glm::lookAt(lightDir * 1.0f + glm::vec3(10, 0, 10), glm::vec3(0.0f) + glm::vec3(10, 0, 10), glm::vec3(0.0, 1.0, 0.0));
-	lightSpaceMatrix = lightProjection * lightView;
-
-	//set depth attributes
-	simpleDepthShader.use();
-	simpleDepthShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
-
-	//set light attributes
-	lightingShader.use();
-	lightingShader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "light.ambient");
-	lightingShader.setVec3(glm::vec3(0.5f, 0.5f, 0.5f), "light.diffuse");
-	lightingShader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "light.specular");
-	lightingShader.setInt(1, "shadowMap");
-	lightingShader.setVec3(lightDir, "light.direction");
-	lightingShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
-
-	//set movespeed
-	camera.moveSpeed = 5.0;
-
-	//record time
-	double lastTime = glfwGetTime();
-
-	//main render loop
-	while (!glfwWindowShouldClose(window)) {
-		double time = glfwGetTime();
-		double deltaTime = time - lastTime;
-		lastTime = time;
-
-		//input
-		processInput(window, deltaTime);
-
-		//render scene from light's point of view
-		simpleDepthShader.use();
-
-		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
-
-		renderScene(simpleDepthShader);
-
-		//reset viewport
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		//render normally
-		lightingShader.use();
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);
-		glm::mat4 view = camera.getViewMatrix();
-		lightingShader.setMat4(projection, "projection");
-		lightingShader.setMat4(view, "view");
-		lightingShader.setVec3(camera.pos, "viewPos");
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-
-		renderScene(lightingShader);
-
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-
-	//clean up
-	glDeleteVertexArrays(1, &cubeVAO);
-	glDeleteVertexArrays(1, &plateVAO);
-	glDeleteBuffers(1, &cubeVBO);
-	glDeleteBuffers(1, &plateVBO);
-
-	glfwTerminate();
-	return 0;
 }
