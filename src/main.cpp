@@ -130,8 +130,8 @@ int main()
 	lightingShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
 	lightingShader.setInt(1, "shadowMap");
 
-	//set movespeed
-	camera.moveSpeed = 5.0;
+	//configure camera values
+	camera.moveSpeed = 10.0;
 
 	//initialize sandpile object
 	Sandpile pile(20, 20);
