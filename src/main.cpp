@@ -443,15 +443,10 @@ void renderGUI(Sandpile &pile)
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-	if (pause) {
-		if (ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32))) {
-			pause = !pause;
-		}
-	} else {
-		if (ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
-			pause = !pause;
-		}
+	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
+		pause = !pause;
 	}
+
 	ImGui::Checkbox("center", &pile.center);
 
 	ImGui::End();
