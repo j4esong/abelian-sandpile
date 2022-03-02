@@ -15,6 +15,7 @@
 #include "shader.hpp"
 #include "camera.hpp"
 #include "sandpile.hpp"
+#include "stb_image.h"
 
 //screen dimensions
 const int SCREEN_WIDTH = 1200;
@@ -33,6 +34,8 @@ bool mouseMoved = false;
 //GUI info
 bool pause = true;
 bool mouseFocused = true;
+unsigned int playTexture;
+unsigned int pauseTexture;
 
 unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
@@ -160,6 +163,25 @@ int main()
 	pile.fillValue(0);
 	plateImage = pile.plate;
 
+	//create button textures
+	glGenTextures(1, &playTexture);
+	glBindTexture(GL_TEXTURE_2D, playTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	int width, height, nrChannels;
+	unsigned char *playData = stbi_load("res/play.png", &width, &height, &nrChannels, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, playData);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	stbi_image_free(playData);
+
+	glGenTextures(1, &pauseTexture);
+	glBindTexture(GL_TEXTURE_2D, pauseTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	unsigned char *pauseData = stbi_load("res/pause.png", &width, &height, &nrChannels, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pauseData);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	stbi_image_free(pauseData);
 
 	//init imgui
 	IMGUI_CHECKVERSION();
@@ -182,13 +204,15 @@ int main()
 		processInput(window, deltaTime);
 
 		//update animation
-		if (currentFrame == animationFrames - 1) {
-			plateImage = pile.plate;
-			pile.update();
-			currentFrame = 0;
-			capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
-		} else {
-			currentFrame++;
+		if (!pause) {
+			if (currentFrame == animationFrames - 1) {
+				plateImage = pile.plate;
+				pile.update();
+				currentFrame = 0;
+				capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
+			} else {
+				currentFrame++;
+			}
 		}
 
 		//render scene from light's point of view
@@ -418,13 +442,18 @@ void renderGUI(Sandpile &pile)
 	ImGui::NewFrame();
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
 	if (pause) {
-		if (ImGui::Button("Play/Pause")) {
+		if (ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32))) {
+			pause = !pause;
+		}
+	} else {
+		if (ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
 			pause = !pause;
 		}
 	}
-
 	ImGui::Checkbox("center", &pile.center);
+
 	ImGui::End();
 
 	ImGui::Render();
