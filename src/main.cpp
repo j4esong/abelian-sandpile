@@ -35,11 +35,16 @@ unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
 //animation info for render function, 1 is no animation
-const int animationFrames = 100;
+const int animationFrames = 1;
 std::vector<std::vector<int>> plateImage;
 int currentFrame;
 
+//temp variables for GUI to store reference to 
 int plateWidth, plateHeight;
+
+//storing capacity history data
+float capacities[100000];
+int capacitySize = 0;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
@@ -176,6 +181,8 @@ int main()
 			plateImage = pile.plate;
 			pile.update();
 			currentFrame = 0;
+			capacities[capacitySize] = (float) pile.capacity / (float) pile.width * pile.height * 4;
+			capacitySize++;
 		} else {
 			currentFrame++;
 		}
@@ -380,6 +387,7 @@ void renderGUI(Sandpile &pile)
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 	ImGui::Checkbox("center", &pile.center);
+	ImGui::PlotLines("Capacity", capacities, capacitySize, 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(200, 100), sizeof(float));
 	ImGui::End();
 
 	ImGui::Render();

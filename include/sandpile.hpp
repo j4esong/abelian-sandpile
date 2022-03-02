@@ -19,6 +19,7 @@ public:
 	int width;
 	int height;
 	int drops;
+	int capacity;
 	std::vector<std::vector<int>> plate;
 	std::queue<std::pair<int, int>> affectedCells;
 	std::queue<std::pair<int, int>> collapsingCells;

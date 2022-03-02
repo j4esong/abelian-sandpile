@@ -2,7 +2,7 @@
 #include "sandpile.hpp"
 
 Sandpile::Sandpile(int width, int height)
-	: width(width), height(height), currentDepth(-1), size(0)
+	: width(width), height(height), drops(0), capacity(0), currentDepth(-1), size(0)
 {
 	plate = std::vector<std::vector<int>>(width, std::vector<int>(height, 0));
 	std::srand(time(0));
@@ -12,12 +12,13 @@ Sandpile::Sandpile(int width, int height)
 advance simulation by one layer.
 use two queues, one for the cells affected by a collapse and one to keep track of the depths of each affected cell.
 each update, iterate over all of the affected cells of depth = currentDepth and process them.
-use another queue to store the positions of the collapsing cells; 
+use another queue to store the positions of the collapsing cells;
 we have to clean those up in the next update for them to be shown on the current update.
 */
 void Sandpile::update()
 {
 	if (affectedCells.size() == 0) {
+		size = 0;
 		currentDepth = 0;
 		if (center)
 			dropOne(width / 2, height / 2, 0, false);
@@ -44,7 +45,9 @@ void Sandpile::update()
 		plate[x][y]++;
 
 		if (plate[x][y] % 4 == 0) {
+			//assume that all 4 will fall off, and then make it back up
 			size += 4;
+			capacity -= 4;
 			collapsingCells.push({x, y});
 			if (y != 0)
 				dropOne(x, y - 1, depth + 1, true);
@@ -61,9 +64,13 @@ void Sandpile::update()
 
 void Sandpile::fillRand()
 {
-	for (int i = 0; i < width; i++)
-		for (int j = 0; j < height; j++)
+	capacity = 0;
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
 			plate[i][j] = std::rand() % 4;
+			capacity += plate[i][j];
+		}
+	}
 	resetQueues();
 }
 
@@ -72,6 +79,7 @@ void Sandpile::fillValue(int n)
 	for (int i = 0; i < width; i++)
 		for (int j = 0; j < height; j++)
 			plate[i][j] = n;
+	capacity = width * height * n;
 	resetQueues();
 }
 
@@ -89,6 +97,7 @@ void Sandpile::dropOne(int x, int y, int depth, bool collapse)
 	depths.push(depth);
 	if (collapse)
 		size--;
+	capacity++;
 }
 
 void Sandpile::resetQueues()
