@@ -4,6 +4,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <chrono>
 #include <thread>
 #include <iostream>
@@ -31,16 +34,19 @@ unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
-//animation info for render function
-const int animationFrames = 20;
+//animation info for render function, 1 is no animation
+const int animationFrames = 100;
 std::vector<std::vector<int>> plateImage;
 int currentFrame;
+
+int plateWidth, plateHeight;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window, double deltaTime);
 void renderCube();
 void renderScene(const Shader &shader, const Sandpile &pile);
+void renderGUI(Sandpile &pile);
 
 int main()
 {
@@ -68,6 +74,7 @@ int main()
 	Shader lightingShader("cubeShader.vert", "cubeShader.frag");
 	Shader simpleDepthShader("depthShader.vert", "depthShader.frag");
 
+	//define plate vertices
 	float plateVertices[] = {
 		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
 		-0.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
@@ -138,11 +145,18 @@ int main()
 	//configure camera values
 	camera.moveSpeed = 10.0;
 
-	//initialize image to nothing, and sandpile object to random pile
+	//initialize image to nothing and sandpile object to random pile
 	Sandpile pile(20, 20);
 	pile.fillValue(0);
 	plateImage = pile.plate;
 	pile.fillRand();
+
+	//init imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+	ImGui::StyleColorsDark();
 
 	//set up per-frame logic
 	double lastTime = glfwGetTime();
@@ -183,7 +197,7 @@ int main()
 
 		//render normally
 		lightingShader.use();
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 200.0f);
 		glm::mat4 view = camera.getViewMatrix();
 		lightingShader.setMat4(projection, "projection");
 		lightingShader.setMat4(view, "view");
@@ -194,11 +208,17 @@ int main()
 
 		renderScene(lightingShader, pile);
 
+		//render GUI
+		renderGUI(pile);
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
 	//clean up
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 	glDeleteVertexArrays(1, &cubeVAO);
 	glDeleteVertexArrays(1, &plateVAO);
 	glDeleteBuffers(1, &cubeVBO);
@@ -243,9 +263,11 @@ void processInput(GLFWwindow *window, double deltaTime)
 		camera.processKeyboard(UP, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
 		camera.processKeyboard(DOWN, deltaTime);
-	//prevent camera from moving below plate
+	//prevent camera from moving below plate or too high
 	if (camera.pos.y < 0)
 		camera.pos.y = 0;
+	if (camera.pos.y > 100)
+		camera.pos.y = 100;
 }
 
 void renderCube()
@@ -298,7 +320,7 @@ void renderCube()
 		glGenBuffers(1, &cubeVBO);
 
 		glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
 		glBindVertexArray(cubeVAO);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
@@ -321,6 +343,8 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 	shader.setVec3(glm::vec3(0.4f, 0.4f, 0.4f), "material.diffuse");
 	shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
 	shader.setFloat(10.0f, "material.shininess");
+
+	//draw plate
 	glBindVertexArray(plateVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -335,9 +359,9 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 		for (int j = 0; j < pile.height; j++) {
 			int target = pile.plate[i][j];
 			int prev = plateImage[i][j];
-			//frame 0 is no progress, frame animationFrames - 1 is 1 from finishing the animation
+			//frame 0 is no progress, frame animationFrames - 1 is one from finishing the animation
 			double progress = (double) currentFrame / (double) animationFrames;
-			//provide a buffer if sand is being added
+			//provide a buffer underneath plate if sand is being added
 			for (int k = std::min(0, prev - target); k < prev; k++) {
 				model = glm::mat4(1.0f);
 				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress, j));
@@ -346,4 +370,18 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 			}
 		}
 	}
+}
+
+void renderGUI(Sandpile &pile)
+{
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+	ImGui::Checkbox("center", &pile.center);
+	ImGui::End();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
