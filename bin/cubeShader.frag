@@ -76,4 +76,8 @@ void main()
         
     vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
     FragColor = vec4(result, 1.0);
+
+    //make it the same color as background if below plate
+    if (FragPos.y < -0.5)
+        FragColor = vec4(0.1);
 } 

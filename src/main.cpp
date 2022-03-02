@@ -31,6 +31,11 @@ unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
+//animation info for render function
+const int animationFrames = 20;
+std::vector<std::vector<int>> plateImage;
+int currentFrame;
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void processInput(GLFWwindow *window, double deltaTime);
@@ -133,12 +138,15 @@ int main()
 	//configure camera values
 	camera.moveSpeed = 10.0;
 
-	//initialize sandpile object
+	//initialize image to nothing, and sandpile object to random pile
 	Sandpile pile(20, 20);
+	pile.fillValue(0);
+	plateImage = pile.plate;
 	pile.fillRand();
 
-	//record time
+	//set up per-frame logic
 	double lastTime = glfwGetTime();
+	currentFrame = 0;
 
 	//main render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -148,6 +156,15 @@ int main()
 
 		//input
 		processInput(window, deltaTime);
+
+		//update animation
+		if (currentFrame == animationFrames - 1) {
+			plateImage = pile.plate;
+			pile.update();
+			currentFrame = 0;
+		} else {
+			currentFrame++;
+		}
 
 		//render scene from light's point of view
 		simpleDepthShader.use();
@@ -316,10 +333,14 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 	//render cubes according to sandpile matrix
 	for (int i = 0; i < pile.width; i++) {
 		for (int j = 0; j < pile.height; j++) {
-			int num = pile.plate[i][j];
-			for (int k = 0; k < num; k++) {
+			int target = pile.plate[i][j];
+			int prev = plateImage[i][j];
+			//frame 0 is no progress, frame animationFrames - 1 is 1 from finishing the animation
+			double progress = (double) currentFrame / (double) animationFrames;
+			//provide a buffer if sand is being added
+			for (int k = std::min(0, prev - target); k < prev; k++) {
 				model = glm::mat4(1.0f);
-				model = glm::translate(model, glm::vec3(i, k, j));
+				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress, j));
 				shader.setMat4(model, "model");
 				renderCube();
 			}
