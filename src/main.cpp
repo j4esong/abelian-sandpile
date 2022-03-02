@@ -30,24 +30,28 @@ float lastX = SCREEN_WIDTH / 2.0;
 float lastY = SCREEN_HEIGHT / 2.0;
 bool mouseMoved = false;
 
+//GUI info
+bool pause = true;
+bool mouseFocused = true;
+
 unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
 //animation info for render function, 1 is no animation
-const int animationFrames = 1;
+const int animationFrames = 100;
 std::vector<std::vector<int>> plateImage;
 int currentFrame;
 
-//temp variables for GUI to store reference to 
+//temp variables for GUI to store reference to
 int plateWidth, plateHeight;
 
-//storing capacity history data
-float capacities[100000];
-int capacitySize = 0;
+//store capacity history data
+std::vector<float> capacityData;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window, double deltaTime);
 void renderCube();
 void renderScene(const Shader &shader, const Sandpile &pile);
@@ -66,6 +70,7 @@ int main()
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetKeyCallback(window, key_callback);
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -154,7 +159,7 @@ int main()
 	Sandpile pile(20, 20);
 	pile.fillValue(0);
 	plateImage = pile.plate;
-	pile.fillRand();
+
 
 	//init imgui
 	IMGUI_CHECKVERSION();
@@ -181,8 +186,7 @@ int main()
 			plateImage = pile.plate;
 			pile.update();
 			currentFrame = 0;
-			capacities[capacitySize] = (float) pile.capacity / (float) pile.width * pile.height * 4;
-			capacitySize++;
+			capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
 		} else {
 			currentFrame++;
 		}
@@ -242,6 +246,9 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 {
+	if (!mouseFocused) {
+		return;
+	}
 	if (!mouseMoved) {
 		lastX = xpos;
 		lastY = ypos;
@@ -252,6 +259,31 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 	lastX = xpos;
 	lastY = ypos;
 	camera.processMouseMovement(xoffset, yoffset);
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+		mouseFocused = !mouseFocused;
+		if (mouseFocused) {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		} else {
+			mouseMoved = false;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+	}
+	if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+		pause = !pause;
+	}
+	/*
+	if (key == GLFW_KEY_G && action == GLFW_PRESS) {
+		gui = !gui;
+	}
+	if (key == GLFW_KEY_K && action == GLFW_PRESS) {
+		pause = true;
+		next = true;
+	}
+	*/
 }
 
 void processInput(GLFWwindow *window, double deltaTime)
@@ -386,8 +418,13 @@ void renderGUI(Sandpile &pile)
 	ImGui::NewFrame();
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+	if (pause) {
+		if (ImGui::Button("Play/Pause")) {
+			pause = !pause;
+		}
+	}
+
 	ImGui::Checkbox("center", &pile.center);
-	ImGui::PlotLines("Capacity", capacities, capacitySize, 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(200, 100), sizeof(float));
 	ImGui::End();
 
 	ImGui::Render();
