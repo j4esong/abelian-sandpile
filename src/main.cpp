@@ -468,6 +468,8 @@ void renderGUI(Sandpile &pile)
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
+	ImGui::PushItemWidth(10);    
+
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
 	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
