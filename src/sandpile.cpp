@@ -18,6 +18,8 @@ we have to clean those up in the next update for them to be shown on the current
 void Sandpile::update()
 {
 	if (affectedCells.size() == 0) {
+		//drop new
+		drops++;
 		size = 0;
 		currentDepth = 0;
 		if (center)

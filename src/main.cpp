@@ -31,10 +31,12 @@ float lastX = SCREEN_WIDTH / 2.0;
 float lastY = SCREEN_HEIGHT / 2.0;
 bool mouseMoved = false;
 
-//GUI info
+//GUI variables
 bool pause = true;
 bool mouseFocused = true;
 bool highlight = false;
+bool infinite = true;
+int maxDrops = 10;
 unsigned int playTexture;
 unsigned int pauseTexture;
 
@@ -208,6 +210,9 @@ int main()
 		//input
 		processInput(window, deltaTime);
 
+		if (pile.drops >= maxDrops) {
+			pause = true;
+		}
 		//update animation
 		if (!pause) {
 			if (currentFrame == animationFrames - 1) {
@@ -248,11 +253,11 @@ int main()
 
 		renderScene(lightingShader, pile);
 
-		//render GUI
+		//render GUI & event polling
 		renderGUI(pile);
-
 		glfwPollEvents();
 
+		//delay, to cap fps
 		double endTime = glfwGetTime();
 		double renderTime = endTime - startTime;
 		int delayTime = (msPerFrame - 1) - ((int) (renderTime * 1000));
@@ -310,15 +315,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_P && action == GLFW_PRESS) {
 		pause = !pause;
 	}
-	/*
-	if (key == GLFW_KEY_G && action == GLFW_PRESS) {
-		gui = !gui;
-	}
-	if (key == GLFW_KEY_K && action == GLFW_PRESS) {
-		pause = true;
-		next = true;
-	}
-	*/
 }
 
 void processInput(GLFWwindow *window, double deltaTime)
@@ -422,14 +418,8 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 	glBindVertexArray(plateVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
-	/*
-	//set cube material attributes
-	shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.ambient");
-	shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.diffuse");
-	shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
-	*/
+	//set shininess (same for all cubes)
 	shader.setFloat(10.0f, "material.shininess");
-
 
 	//render cubes according to sandpile matrix
 	for (int i = 0; i < pile.width; i++) {
@@ -471,15 +461,33 @@ void renderGUI(Sandpile &pile)
 	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
 		pause = !pause;
 	}
-	
+
 	ImGui::Checkbox("center", &pile.center);
+
+	ImGui::SameLine();
 	ImGui::Checkbox("highlight", &highlight);
 
-	if (ImGui::Button("Clear"))
-		pile.fillValue(0);
 	ImGui::SameLine();
-	if (ImGui::Button("Randomize"))
+	ImGui::Checkbox("infinite", &infinite);
+
+	if (!infinite) {
+		ImGui::InputInt("drops", &maxDrops);
+	} else {
+		maxDrops = INT_MAX;
+	}
+
+	if (ImGui::Button("Clear")) {
+		pause = true;
+		pile.fillValue(0);
+		pile.drops = 0;
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Randomize")) {
+		pause = true;
 		pile.fillRand();
+		pile.drops = 0;
+	}
 
 	ImGui::End();
 
