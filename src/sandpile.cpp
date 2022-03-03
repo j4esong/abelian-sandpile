@@ -2,7 +2,7 @@
 #include "sandpile.hpp"
 
 Sandpile::Sandpile(int width, int height)
-	: width(width), height(height), drops(0), capacity(0), center(true), currentDepth(-1), size(0)
+	: width(width), height(height), drops(0), capacity(0), size(0), center(true), currentDepth(-1)
 {
 	plate = std::vector<std::vector<int>>(width, std::vector<int>(height, 0));
 	std::srand(time(0));

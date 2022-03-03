@@ -19,6 +19,7 @@ public:
 	int height;
 	int drops;
 	int capacity;
+	int size;
 	std::vector<std::vector<int>> plate;
 	std::queue<std::pair<int, int>> affectedCells;
 	std::queue<std::pair<int, int>> collapsingCells;
@@ -31,7 +32,6 @@ public:
 	void resize();
 private:
 	int currentDepth;
-	int size;
 	void dropOne(int x, int y, int depth, bool collapse);
 	void resetQueues();
 };

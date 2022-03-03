@@ -39,7 +39,7 @@ bool infinite = true;
 bool pauseOnNextUpdate = false;
 bool resizeOnNextUpdate = false;
 int maxDrops = 10;
-int tempAnimationFrames = 10;
+int tempAnimationFrames = 5;
 int tempPlateWidth = 20;
 int tempPlateHeight = 20;
 unsigned int playTexture;
@@ -50,7 +50,7 @@ unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
 //animation info for render function, 1 is no animation
-int animationFrames = 10;
+int animationFrames = 5;
 std::vector<std::vector<int>> plateImage;
 int currentFrame = 0;
 const int maxFPS = 60;
@@ -428,7 +428,7 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 
 	//set plate material attributes
 	shader.setMat4(model, "model");
-	shader.setVec3(glm::vec3(0.5f, 0.5f, 0.5f), "material.ambient");
+	shader.setVec3(glm::vec3(0.6f, 0.6f, 0.6f), "material.ambient");
 	shader.setVec3(glm::vec3(0.4f, 0.4f, 0.4f), "material.diffuse");
 	shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
 	shader.setFloat(10.0f, "material.shininess");
