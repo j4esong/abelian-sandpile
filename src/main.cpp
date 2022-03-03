@@ -37,8 +37,13 @@ bool mouseFocused = true;
 bool highlight = false;
 bool infinite = true;
 bool pauseOnNextUpdate = false;
+bool resizeOnNextUpdate = false;
 int maxDrops = 10;
 int tempAnimationFrames = 10;
+int tempPlateWidth = 20;
+int tempPlateHeight = 20;
+bool pauseClear = false;
+bool clearClear = false;
 unsigned int playTexture;
 unsigned int pauseTexture;
 
@@ -219,11 +224,28 @@ int main()
 		//update animation
 		if (!pause) {
 			if (currentFrame == animationFrames - 1) {
-				//animation is ending and pause is queued -> doesn't break so that frame 0 of the next animation can be displayed i.e. the ending state
+				//animation is ending and pause is queued -> breaks so it doesn't update
 				if (pauseOnNextUpdate) {
 					pause = true;
 					pauseOnNextUpdate = false;
 					animationFrames = tempAnimationFrames;
+					currentFrame = animationFrames - 1;
+					plateImage = pile.plate;
+
+					goto paused;
+				}
+				if (resizeOnNextUpdate) {
+					pause = true;
+					resizeOnNextUpdate = false;
+					animationFrames = tempAnimationFrames;
+					currentFrame = animationFrames - 1;
+					plateImage = pile.plate;
+
+					pile.width = tempPlateWidth;
+					pile.height = tempPlateHeight;
+					pile.resize();
+					
+					goto paused;
 				}
 				plateImage = pile.plate;
 				pile.update();
@@ -233,6 +255,8 @@ int main()
 				currentFrame++;
 			}
 		}
+
+paused:
 
 		//render scene from light's point of view
 		simpleDepthShader.use();
@@ -437,13 +461,13 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 		for (int j = 0; j < pile.height; j++) {
 			int target = pile.plate[i][j];
 			int prev = plateImage[i][j];
-			//frame 0 is no progress, frame animationFrames - 1 is one from finishing the animation
-			double progress = (double) (currentFrame) / (double) animationFrames;
+			//frame 0 is just started, frame animationFrames - 1 is finished animation
+			double progress = (double) (currentFrame + 1) / (double) animationFrames;
 			//provide a buffer underneath plate if sand is being added
 			for (int k = std::min(0, prev - target); k < prev; k++) {
 				model = glm::mat4(1.0f);
-				//offset so that when the animation is paused on the first frame, the buffer does not show above the surface
-				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress - 0.001, j));
+				//offset so that when the animation is paused on the last frame, the buffer does not show above the surface
+				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress - 0.005, j));
 				shader.setMat4(model, "model");
 				if (highlight && prev > target) {
 					//cyan
@@ -466,7 +490,7 @@ void renderGUI(Sandpile &pile)
 {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame(); 
+	ImGui::NewFrame();
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
@@ -492,6 +516,7 @@ void renderGUI(Sandpile &pile)
 	if (ImGui::Button("Clear")) {
 		if (pause)
 			pause = false;
+		currentFrame = 0;
 		animationFrames = 10;
 		pauseOnNextUpdate = true;
 		pile.fillValue(0);
@@ -514,6 +539,27 @@ void renderGUI(Sandpile &pile)
 		pause = true;
 		currentFrame = 0;
 		animationFrames = tempAnimationFrames;
+	}
+
+	//clear before resizing
+	ImGui::InputInt("width", &tempPlateWidth);
+	if (ImGui::IsItemDeactivatedAfterEdit()) {
+		if (pause)
+			pause = false;
+		animationFrames = 10;
+		resizeOnNextUpdate = true;
+		pile.fillValue(0);
+		pile.drops = 0;
+	}
+
+	ImGui::InputInt("height", &tempPlateHeight);
+	if (ImGui::IsItemDeactivatedAfterEdit()) {
+		if (pause)
+			pause = false;
+		animationFrames = 10;
+		resizeOnNextUpdate = true;
+		pile.fillValue(0);
+		pile.drops = 0;
 	}
 
 	ImGui::End();
