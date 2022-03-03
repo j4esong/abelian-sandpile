@@ -18,8 +18,8 @@
 #include "stb_image.h"
 
 //screen dimensions
-const int SCREEN_WIDTH = 1200;
-const int SCREEN_HEIGHT = 675;
+int screenWidth = 1200;
+int screenHeight = 675;
 
 //initial camera settings
 Camera camera(glm::vec3(-6.5f, 10.0f, -6.5f), 45.0f, 0.0f);
@@ -27,8 +27,8 @@ Camera camera(glm::vec3(-6.5f, 10.0f, -6.5f), 45.0f, 0.0f);
 //directional lighting
 const glm::vec3 lightDir(1.2f, 2.5f, 2.0f);
 
-float lastX = SCREEN_WIDTH / 2.0;
-float lastY = SCREEN_HEIGHT / 2.0;
+float lastX = screenWidth / 2.0;
+float lastY = screenHeight / 2.0;
 bool mouseMoved = false;
 
 //GUI variables
@@ -37,6 +37,7 @@ bool mouseFocused = true;
 bool highlight = false;
 bool infinite = true;
 int maxDrops = 10;
+int tempAnimationFrames = 10;
 unsigned int playTexture;
 unsigned int pauseTexture;
 
@@ -74,7 +75,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	//make window
-	GLFWwindow *window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandpile", nullptr, nullptr);
+	GLFWwindow *window = glfwCreateWindow(screenWidth, screenHeight, "Sandpile", nullptr, nullptr);
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
@@ -236,13 +237,13 @@ int main()
 
 		//reset viewport
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		glViewport(0, 0, screenWidth, screenHeight);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//render normally
 		lightingShader.use();
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 200.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) screenWidth / (float) screenHeight, 0.1f, 200.0f);
 		glm::mat4 view = camera.getViewMatrix();
 		lightingShader.setMat4(projection, "projection");
 		lightingShader.setMat4(view, "view");
@@ -282,6 +283,8 @@ int main()
 void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
 	glViewport(0, 0, width, height);
+	screenWidth = width;
+	screenHeight = height;
 }
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
@@ -487,6 +490,13 @@ void renderGUI(Sandpile &pile)
 		pause = true;
 		pile.fillRand();
 		pile.drops = 0;
+	}
+
+	ImGui::SliderInt("frames", &tempAnimationFrames, 1, 20);
+	if (ImGui::IsItemDeactivatedAfterEdit()) {
+		pause = true;
+		currentFrame = 0;
+		animationFrames = tempAnimationFrames;
 	}
 
 	ImGui::End();
