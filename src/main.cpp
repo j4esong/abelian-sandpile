@@ -466,9 +466,7 @@ void renderGUI(Sandpile &pile)
 {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	ImGui::PushItemWidth(10);    
+	ImGui::NewFrame(); 
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 

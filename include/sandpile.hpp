@@ -10,7 +10,6 @@
 #include <chrono>
 #include <queue>
 #include <vector>
-#include <map>
 #include <cstring>
 
 class Sandpile
