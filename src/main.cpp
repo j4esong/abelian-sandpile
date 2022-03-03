@@ -70,6 +70,7 @@ void renderCube();
 void renderScene(const Shader &shader, const Sandpile &pile);
 void renderGUI(Sandpile &pile);
 void updateLightSpace(Shader &a, Shader &b);
+void reset(Sandpile &pile, bool rand, bool resize);
 
 int main()
 {
@@ -212,42 +213,30 @@ int main()
 		//update animation
 		if (!pause) {
 			if (currentFrame == animationFrames - 1) {
-				//animation is ending and pause is queued -> breaks so it doesn't update
-				if (pauseOnNextUpdate) {
+				//animation is ending and pause is queued -> stay at end of animation under old animationFrames and don't update
+				if (pauseOnNextUpdate || resizeOnNextUpdate) {
 					pause = true;
 					pauseOnNextUpdate = false;
 					animationFrames = tempAnimationFrames;
 					currentFrame = animationFrames - 1;
+					if (resizeOnNextUpdate) {
+						resizeOnNextUpdate = false;
+						pile.width = tempPlateWidth;
+						pile.height = tempPlateHeight;
+						pile.resize();
+						updateLightSpace(simpleDepthShader, lightingShader);
+					}
 					plateImage = pile.plate;
-
-					goto paused;
-				}
-				if (resizeOnNextUpdate) {
-					pause = true;
-					resizeOnNextUpdate = false;
-					animationFrames = tempAnimationFrames;
-					currentFrame = animationFrames - 1;
-
-					pile.width = tempPlateWidth;
-					pile.height = tempPlateHeight;
-					pile.resize();
-
+				} else {
 					plateImage = pile.plate;
-
-					updateLightSpace(simpleDepthShader, lightingShader);
-
-					goto paused;
+					pile.update();
+					currentFrame = 0;
+					capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
 				}
-				plateImage = pile.plate;
-				pile.update();
-				currentFrame = 0;
-				capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
 			} else {
 				currentFrame++;
 			}
 		}
-
-paused:
 
 		//render scene from light's point of view
 		simpleDepthShader.use();
@@ -466,7 +455,7 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 				//offset so that when the animation is paused on the last frame, the buffer does not show above the surface
 				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress - 0.005, j));
 				shader.setMat4(model, "model");
-				if (highlight && prev > target) {
+				if (highlight && target >= 4) {
 					//cyan
 					shader.setVec3(glm::vec3(0.0f, 1.0f, 1.0f), "material.ambient");
 					shader.setVec3(glm::vec3(0.0f, 1.0f, 1.0f), "material.diffuse");
@@ -491,9 +480,8 @@ void renderGUI(Sandpile &pile)
 
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
+	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32)))
 		pause = !pause;
-	}
 
 	ImGui::Checkbox("center", &pile.center);
 
@@ -509,28 +497,12 @@ void renderGUI(Sandpile &pile)
 		maxDrops = INT_MAX;
 	}
 
-	//unpause to play collpasing animation, and then pause again once the animation is complete
-	if (ImGui::Button("Clear")) {
-		if (pause)
-			pause = false;
-		currentFrame = 0;
-		animationFrames = 10;
-		pauseOnNextUpdate = true;
-		pile.fillValue(0);
-		pile.drops = 0;
-	}
+	if (ImGui::Button("Clear"))
+		reset(pile, false, false);
 
-	//same logic
 	ImGui::SameLine();
-	if (ImGui::Button("Randomize")) {
-		if (pause)
-			pause = false;
-		currentFrame = 0;
-		animationFrames = 10;
-		pauseOnNextUpdate = true;
-		pile.fillRand();
-		pile.drops = 0;
-	}
+	if (ImGui::Button("Randomize"))
+		reset(pile, true, false);
 
 	ImGui::SliderInt("frames", &tempAnimationFrames, 1, 20);
 	if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -544,24 +516,14 @@ void renderGUI(Sandpile &pile)
 	if (ImGui::IsItemDeactivatedAfterEdit()) {
 		if (tempPlateWidth > 100)
 			tempPlateWidth = 100;
-		if (pause)
-			pause = false;
-		animationFrames = 10;
-		resizeOnNextUpdate = true;
-		pile.fillValue(0);
-		pile.drops = 0;
+		reset(pile, false, true);
 	}
 
 	ImGui::InputInt("height", &tempPlateHeight);
 	if (ImGui::IsItemDeactivatedAfterEdit()) {
 		if (tempPlateHeight > 100)
 			tempPlateHeight = 100;
-		if (pause)
-			pause = false;
-		animationFrames = 10;
-		resizeOnNextUpdate = true;
-		pile.fillValue(0);
-		pile.drops = 0;
+		reset(pile, false, true);
 	}
 
 	ImGui::End();
@@ -588,4 +550,23 @@ void updateLightSpace(Shader &a, Shader &b)
 	a.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
 	b.use();
 	b.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+}
+
+void reset(Sandpile &pile, bool rand, bool resize)
+{
+	//unpause to play collpasing animation, and then pause again once the animation is complete
+	if (pause)
+		pause = false;
+	currentFrame = 0;
+	animationFrames = 10;
+	if (resize)
+		resizeOnNextUpdate = true;
+	else
+		pauseOnNextUpdate = true;
+	if (rand)
+		pile.fillRand();
+	else
+		pile.fillValue(0);
+	pile.drops = 0;
+	capacityData.clear();
 }
