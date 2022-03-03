@@ -34,6 +34,7 @@ bool mouseMoved = false;
 //GUI info
 bool pause = true;
 bool mouseFocused = true;
+bool highlight = false;
 unsigned int playTexture;
 unsigned int pauseTexture;
 
@@ -42,9 +43,11 @@ unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
 //animation info for render function, 1 is no animation
-const int animationFrames = 100;
+const int animationFrames = 10;
 std::vector<std::vector<int>> plateImage;
-int currentFrame;
+int currentFrame = 0;
+const int maxFPS = 75;
+const int msPerFrame = (int) (((double) 1 / (double) maxFPS) * 1000);
 
 //temp variables for GUI to store reference to
 int plateWidth, plateHeight;
@@ -191,14 +194,16 @@ int main()
 	ImGui::StyleColorsDark();
 
 	//set up per-frame logic
+	double deltaTime = 0;
 	double lastTime = glfwGetTime();
 	currentFrame = 0;
+	glfwSwapInterval(0);
 
 	//main render loop
 	while (!glfwWindowShouldClose(window)) {
-		double time = glfwGetTime();
-		double deltaTime = time - lastTime;
-		lastTime = time;
+		double startTime = glfwGetTime();
+		deltaTime = startTime - lastTime;
+		lastTime = startTime;
 
 		//input
 		processInput(window, deltaTime);
@@ -245,6 +250,10 @@ int main()
 
 		//render GUI
 		renderGUI(pile);
+
+		double endTime = glfwGetTime();
+		double renderTime = endTime - startTime;
+		std::this_thread::sleep_for(std::chrono::milliseconds(msPerFrame - (int) (renderTime * 1000)));
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -411,11 +420,14 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 	glBindVertexArray(plateVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
+	/*
 	//set cube material attributes
 	shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.ambient");
 	shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.diffuse");
 	shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
+	*/
 	shader.setFloat(10.0f, "material.shininess");
+
 
 	//render cubes according to sandpile matrix
 	for (int i = 0; i < pile.width; i++) {
@@ -429,6 +441,17 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 				model = glm::mat4(1.0f);
 				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress, j));
 				shader.setMat4(model, "model");
+				if (highlight && prev > target) {
+					//cyan
+					shader.setVec3(glm::vec3(0.0f, 1.0f, 1.0f), "material.ambient");
+					shader.setVec3(glm::vec3(0.0f, 1.0f, 1.0f), "material.diffuse");
+					shader.setVec3(glm::vec3(0.0f, 0.2f, 0.2f), "material.specular");
+				} else {
+					//white
+					shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.ambient");
+					shader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "material.diffuse");
+					shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
+				}
 				renderCube();
 			}
 		}
@@ -447,7 +470,11 @@ void renderGUI(Sandpile &pile)
 		pause = !pause;
 	}
 
+	ImGui::SameLine();
 	ImGui::Checkbox("center", &pile.center);
+
+	ImGui::SameLine();
+	ImGui::Checkbox("highlight", &highlight);
 
 	ImGui::End();
 
