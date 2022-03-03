@@ -43,10 +43,10 @@ unsigned int cubeVBO = 0;
 unsigned int plateVAO;
 
 //animation info for render function, 1 is no animation
-const int animationFrames = 10;
+int animationFrames = 10;
 std::vector<std::vector<int>> plateImage;
 int currentFrame = 0;
-const int maxFPS = 75;
+const int maxFPS = 60;
 const int msPerFrame = (int) (((double) 1 / (double) maxFPS) * 1000);
 
 //temp variables for GUI to store reference to
@@ -77,6 +77,7 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetKeyCallback(window, key_callback);
+	glfwSwapInterval(0);
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -197,7 +198,6 @@ int main()
 	double deltaTime = 0;
 	double lastTime = glfwGetTime();
 	currentFrame = 0;
-	glfwSwapInterval(0);
 
 	//main render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -251,12 +251,14 @@ int main()
 		//render GUI
 		renderGUI(pile);
 
+		glfwPollEvents();
+
 		double endTime = glfwGetTime();
 		double renderTime = endTime - startTime;
-		std::this_thread::sleep_for(std::chrono::milliseconds(msPerFrame - (int) (renderTime * 1000)));
+		int delayTime = (msPerFrame - 1) - ((int) (renderTime * 1000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
 
 		glfwSwapBuffers(window);
-		glfwPollEvents();
 	}
 
 	//clean up
@@ -469,12 +471,15 @@ void renderGUI(Sandpile &pile)
 	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32))) {
 		pause = !pause;
 	}
-
-	ImGui::SameLine();
+	
 	ImGui::Checkbox("center", &pile.center);
-
-	ImGui::SameLine();
 	ImGui::Checkbox("highlight", &highlight);
+
+	if (ImGui::Button("Clear"))
+		pile.fillValue(0);
+	ImGui::SameLine();
+	if (ImGui::Button("Randomize"))
+		pile.fillRand();
 
 	ImGui::End();
 
