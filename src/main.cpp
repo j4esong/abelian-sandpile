@@ -42,8 +42,6 @@ int maxDrops = 10;
 int tempAnimationFrames = 10;
 int tempPlateWidth = 20;
 int tempPlateHeight = 20;
-bool pauseClear = false;
-bool clearClear = false;
 unsigned int playTexture;
 unsigned int pauseTexture;
 
@@ -71,6 +69,8 @@ void processInput(GLFWwindow *window, double deltaTime);
 void renderCube();
 void renderScene(const Shader &shader, const Sandpile &pile);
 void renderGUI(Sandpile &pile);
+void updateLightSpace(Shader &a, Shader &b);
+void renderQuad();
 
 int main()
 {
@@ -99,6 +99,7 @@ int main()
 	//compile shaders
 	Shader lightingShader("cubeShader.vert", "cubeShader.frag");
 	Shader simpleDepthShader("depthShader.vert", "depthShader.frag");
+	Shader debugDepthQuad("debug.vert", "debug.frag");
 
 	//define plate vertices
 	float plateVertices[] = {
@@ -147,17 +148,22 @@ int main()
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	//light space calculations
-	glm::mat4 lightProjection, lightView;
-	glm::mat4 lightSpaceMatrix;
-	float near_plate = -10.5f, far_plate = 20.5f;
-	lightProjection = glm::ortho(-20.0f, 20.0f, -10.0f, 10.0f, near_plate, far_plate);
-	lightView = glm::lookAt(lightDir * 1.0f + glm::vec3(10, 0, 10), glm::vec3(0.0f) + glm::vec3(10, 0, 10), glm::vec3(0.0, 1.0, 0.0));
-	lightSpaceMatrix = lightProjection * lightView;
+	float near_plane = -10.5f, far_plane = 20.5f;
+	/*
+		//light space calculations
+		glm::mat4 lightProjection, lightView;
+		glm::mat4 lightSpaceMatrix;
+		float near_plate = -10.5f, far_plate = 20.5f;
+		lightProjection = glm::ortho(-20.0f, 20.0f, -10.0f, 10.0f, near_plate, far_plate);
+		lightView = glm::lookAt(lightDir * 1.0f + glm::vec3(10, 0, 10), glm::vec3(0.0f) + glm::vec3(10, 0, 10), glm::vec3(0.0, 1.0, 0.0));
+		lightSpaceMatrix = lightProjection * lightView;
 
-	//set depth attributes
-	simpleDepthShader.use();
-	simpleDepthShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+		//set depth attributes
+		simpleDepthShader.use();
+		simpleDepthShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+	*/
+
+	updateLightSpace(simpleDepthShader, lightingShader);
 
 	//set light attributes
 	lightingShader.use();
@@ -165,7 +171,6 @@ int main()
 	lightingShader.setVec3(glm::vec3(0.5f, 0.5f, 0.5f), "light.diffuse");
 	lightingShader.setVec3(glm::vec3(1.0f, 1.0f, 1.0f), "light.specular");
 	lightingShader.setVec3(lightDir, "light.direction");
-	lightingShader.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
 	lightingShader.setInt(1, "shadowMap");
 
 	//configure camera values
@@ -246,6 +251,8 @@ int main()
 
 					plateImage = pile.plate;
 
+					updateLightSpace(simpleDepthShader, lightingShader);
+
 					goto paused;
 				}
 				plateImage = pile.plate;
@@ -286,6 +293,13 @@ paused:
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 
 		renderScene(lightingShader, pile);
+
+		debugDepthQuad.use();
+		debugDepthQuad.setFloat(near_plane, "near_plane");
+		debugDepthQuad.setFloat(far_plane, "far_plane");
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		//renderQuad();
 
 		//render GUI & event polling
 		renderGUI(pile);
@@ -574,4 +588,53 @@ void renderGUI(Sandpile &pile)
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void updateLightSpace(Shader &a, Shader &b)
+{
+	//light space calculations
+	glm::mat4 lightProjection, lightView;
+	glm::mat4 lightSpaceMatrix;
+	float camPos = std::max((float) tempPlateWidth / 2, (float) tempPlateHeight / 2);
+	float near_plate = -2.0 * camPos, far_plate = 2.0 * camPos;
+	lightProjection = glm::ortho((float) -2.0 * camPos, (float) 2.0 * camPos, (float) -camPos, (float) camPos, near_plate, far_plate);
+	lightView = glm::lookAt(lightDir * 1.0f + glm::vec3(camPos, 0, (float) camPos),
+	                        glm::vec3(0.0f) + glm::vec3(camPos, 0, (float) camPos),
+	                        glm::vec3(0.0, 1.0, 0.0));
+	lightSpaceMatrix = lightProjection * lightView;
+
+	//set lightspace matrix
+	a.use();
+	a.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+	b.use();
+	b.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
+}
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+	if (quadVAO == 0)
+	{
+		float quadVertices[] = {
+			// positions        // texture Coords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+		// setup plane VAO
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	}
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
 }
