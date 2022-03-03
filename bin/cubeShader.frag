@@ -25,6 +25,7 @@ uniform vec3 viewPos;
 uniform sampler2D shadowMap;
 uniform Material material;
 uniform Light light;
+uniform bool cube;
 
 vec3 lightDir = normalize(light.direction);
 
@@ -55,11 +56,13 @@ void main()
     vec3 ambient = light.ambient * material.ambient;
   	
     //add border
-    bool right = abs(ModelPos.x) >= 0.49;
-    bool top = abs(ModelPos.y) >= 0.49;
-    bool back = abs(ModelPos.z) >= 0.49;
-    if (right ? (top || back) : (top && back))
-        ambient = vec3(0.15, 0.15, 0.15);
+    if (cube) {
+        bool right = abs(ModelPos.x) >= 0.49;
+        bool top = abs(ModelPos.y) >= 0.49;
+        bool back = abs(ModelPos.z) >= 0.49;
+        if (right ? (top || back) : (top && back))
+           ambient = vec3(0.15, 0.15, 0.15);
+    }
 
     // diffuse 
     vec3 norm = normalize(Normal);

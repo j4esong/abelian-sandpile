@@ -102,13 +102,13 @@ int main()
 
 	//define plate vertices
 	float plateVertices[] = {
-		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+		1.0f, -0.5f,  1.0f,  0.0f, 1.0f, 0.0f,
+		0.0f, -0.5f, 1.0f,  0.0f, 1.0f, 0.0f,
+		0.0f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
 
-		19.5f, -0.5f,  19.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-		19.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+		1.0f, -0.5f,  1.0f,  0.0f, 1.0f, 0.0f,
+		0.0f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
+		1.0f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
 	};
 
 	//set up plate VAO
@@ -442,13 +442,18 @@ void renderCube()
 
 void renderScene(const Shader &shader, const Sandpile &pile)
 {
-	//set plate material attributes
+	//translate plate
 	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, glm::vec3(-0.5f, 0.0f, -0.5f));
+	model = glm::scale(model, glm::vec3(pile.width, 1.0f, pile.height));
+
+	//set plate material attributes
 	shader.setMat4(model, "model");
 	shader.setVec3(glm::vec3(0.5f, 0.5f, 0.5f), "material.ambient");
 	shader.setVec3(glm::vec3(0.4f, 0.4f, 0.4f), "material.diffuse");
 	shader.setVec3(glm::vec3(0.2f, 0.2f, 0.2f), "material.specular");
 	shader.setFloat(10.0f, "material.shininess");
+	shader.setBool(false, "cube");
 
 	//draw plate
 	glBindVertexArray(plateVAO);
@@ -456,6 +461,7 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 
 	//set shininess (same for all cubes)
 	shader.setFloat(10.0f, "material.shininess");
+	shader.setBool(true, "cube");
 
 	//render cubes according to sandpile matrix
 	for (int i = 0; i < pile.width; i++) {
