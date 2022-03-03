@@ -239,12 +239,13 @@ int main()
 					resizeOnNextUpdate = false;
 					animationFrames = tempAnimationFrames;
 					currentFrame = animationFrames - 1;
-					plateImage = pile.plate;
 
 					pile.width = tempPlateWidth;
 					pile.height = tempPlateHeight;
 					pile.resize();
-					
+
+					plateImage = pile.plate;
+
 					goto paused;
 				}
 				plateImage = pile.plate;
@@ -528,6 +529,7 @@ void renderGUI(Sandpile &pile)
 	if (ImGui::Button("Randomize")) {
 		if (pause)
 			pause = false;
+		currentFrame = 0;
 		animationFrames = 10;
 		pauseOnNextUpdate = true;
 		pile.fillRand();
