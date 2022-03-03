@@ -36,6 +36,7 @@ bool pause = true;
 bool mouseFocused = true;
 bool highlight = false;
 bool infinite = true;
+bool pauseOnNextUpdate = false;
 int maxDrops = 10;
 int tempAnimationFrames = 10;
 unsigned int playTexture;
@@ -200,7 +201,6 @@ int main()
 	//set up per-frame logic
 	double deltaTime = 0;
 	double lastTime = glfwGetTime();
-	currentFrame = 0;
 
 	//main render loop
 	while (!glfwWindowShouldClose(window)) {
@@ -208,15 +208,23 @@ int main()
 		deltaTime = startTime - lastTime;
 		lastTime = startTime;
 
-		//input
+		//process input
 		processInput(window, deltaTime);
 
+		//check max drop
 		if (pile.drops >= maxDrops) {
-			pause = true;
+			pauseOnNextUpdate = true;
 		}
+
 		//update animation
 		if (!pause) {
 			if (currentFrame == animationFrames - 1) {
+				//animation is ending and pause is queued -> doesn't break so that frame 0 of the next animation can be displayed i.e. the ending state
+				if (pauseOnNextUpdate) {
+					pause = true;
+					pauseOnNextUpdate = false;
+					animationFrames = tempAnimationFrames;
+				}
 				plateImage = pile.plate;
 				pile.update();
 				currentFrame = 0;
@@ -430,11 +438,12 @@ void renderScene(const Shader &shader, const Sandpile &pile)
 			int target = pile.plate[i][j];
 			int prev = plateImage[i][j];
 			//frame 0 is no progress, frame animationFrames - 1 is one from finishing the animation
-			double progress = (double) currentFrame / (double) animationFrames;
+			double progress = (double) (currentFrame) / (double) animationFrames;
 			//provide a buffer underneath plate if sand is being added
 			for (int k = std::min(0, prev - target); k < prev; k++) {
 				model = glm::mat4(1.0f);
-				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress, j));
+				//offset so that when the animation is paused on the first frame, the buffer does not show above the surface
+				model = glm::translate(model, glm::vec3(i, k + (target - prev) * progress - 0.001, j));
 				shader.setMat4(model, "model");
 				if (highlight && prev > target) {
 					//cyan
@@ -479,15 +488,23 @@ void renderGUI(Sandpile &pile)
 		maxDrops = INT_MAX;
 	}
 
+	//unpause to play collpasing animation, and then pause again once the animation is complete
 	if (ImGui::Button("Clear")) {
-		pause = true;
+		if (pause)
+			pause = false;
+		animationFrames = 10;
+		pauseOnNextUpdate = true;
 		pile.fillValue(0);
 		pile.drops = 0;
 	}
 
+	//same logic
 	ImGui::SameLine();
 	if (ImGui::Button("Randomize")) {
-		pause = true;
+		if (pause)
+			pause = false;
+		animationFrames = 10;
+		pauseOnNextUpdate = true;
 		pile.fillRand();
 		pile.drops = 0;
 	}
