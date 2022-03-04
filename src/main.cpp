@@ -9,8 +9,10 @@
 #include <imgui_impl_opengl3.h>
 #include <chrono>
 #include <thread>
+#include <string>
 #include <iostream>
 #include <vector>
+#include <map>
 
 #include "shader.hpp"
 #include "camera.hpp"
@@ -58,8 +60,11 @@ const int msPerFrame = (int) (((double) 1 / (double) maxFPS) * 1000);
 //temp variables for GUI to store reference to
 int plateWidth, plateHeight;
 
-//store capacity history data
-std::vector<float> capacityData;
+//data tracking
+std::vector<int> sizeData;
+std::string lastReset = "clear";
+int centerCount = 0;
+int randomCount = 0;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
@@ -70,6 +75,7 @@ void renderScene(const Shader &shader, const Sandpile &pile);
 void renderGUI(Sandpile &pile);
 void updateLightSpace(Shader &a, Shader &b);
 void reset(Sandpile &pile, bool rand, bool resize);
+void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &pile);
 
 int main()
 {
@@ -229,9 +235,19 @@ int main()
 				} else {
 					//end of update: change to next update
 					plateImage = pile.plate;
-					pile.update();
+					//if about to drop get size data afterwards (after first update affectedCells is not empty)
+					if (pile.affectedCells.size() == 0) {
+						pile.update();
+						sizeData.push_back(pile.size);
+						//count type of drop
+						if (pile.center)
+							centerCount++;
+						else
+							randomCount++;
+					} else {
+						pile.update();
+					}
 					currentFrame = 0;
-					capacityData.push_back((float) pile.capacity / (float) pile.width * pile.height * 4);
 				}
 			} else {
 				currentFrame++;
@@ -483,6 +499,11 @@ void renderGUI(Sandpile &pile)
 	if ((pause) ? ImGui::ImageButton((void*) (intptr_t) playTexture, ImVec2(32, 32)) : ImGui::ImageButton((void*) (intptr_t) pauseTexture, ImVec2(32, 32)))
 		pause = !pause;
 
+	ImGui::SameLine();
+	if (ImGui::Button("export data")) {
+		exportFrequencyDistribution(sizeData, pile);
+	}
+
 	ImGui::Checkbox("center", &pile.center);
 
 	ImGui::SameLine();
@@ -563,10 +584,44 @@ void reset(Sandpile &pile, bool rand, bool resize)
 		resizeOnNextUpdate = true;
 	else
 		pauseOnNextUpdate = true;
-	if (rand)
+	if (rand) {
 		pile.fillRand();
-	else
+		lastReset = "randomize";
+	} else {
 		pile.fillValue(0);
+		lastReset = "clear";
+	}
+	centerCount = 0;
+	randomCount = 0;
 	pile.drops = 0;
-	capacityData.clear();
+	sizeData.clear();
+}
+
+void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &pile)
+{
+	std::map<int, int> dist;
+	for (int i : data) {
+		if (dist.find(i) == dist.end()) {
+			dist[i] = 1;
+		} else {
+			dist[i]++;
+		}
+	}
+	std::ofstream fs("sizeFreq.txt");
+	if (!fs) {
+		std::cout << "Could not open the output file." << std::endl;
+		return;
+	}
+	fs << lastReset << "\n"
+	   << pile.width << "\n"
+	   << pile.height << "\n"
+	   << pile.drops << "\n"
+	   << centerCount << "\n"
+	   << randomCount << "\n";
+	fs << "\tSize\tFreq.\n";
+	int row = 0;
+	for (auto &pair : dist) {
+		row++;
+		fs << row << "\t" << pair.first << "\t" << pair.second << "\n";
+	}
 }
