@@ -18,7 +18,6 @@
 #include "camera.hpp"
 #include "sandpile.hpp"
 #include "stb_image.h"
-#include "Rinside.h"
 
 //screen dimensions
 int screenWidth = 1200;
@@ -625,5 +624,5 @@ void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &p
 		row++;
 		fs << row << "\t" << pair.first << "\t" << pair.second << "\n";
 	}
-	RInside R;
+
 }
