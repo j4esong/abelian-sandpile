@@ -1,5 +1,5 @@
 # abelian-sandpile
-A 3D simulation of the sandpile group made using OpenGL.
+A 3D simulation of the sandpile group made with OpenGL.
 ## controls
 ### movement
 <kbd>W</kbd>: move forward  
