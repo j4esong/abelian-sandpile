@@ -1,13 +1,14 @@
 
 #version 330 core
+
 out vec4 FragColor;
 
 struct Material {
     vec3 ambient;
     vec3 diffuse;
-    vec3 specular;    
+    vec3 specular;
     float shininess;
-}; 
+};
 
 struct Light {
     vec3 direction;
@@ -16,8 +17,8 @@ struct Light {
     vec3 specular;
 };
 
-in vec3 FragPos;  
-in vec3 Normal;  
+in vec3 FragPos;
+in vec3 Normal;
 in vec3 ModelPos;
 in vec4 FragPosLightSpace;
 
@@ -33,19 +34,19 @@ float calculateShadow(vec4 fragPosLightSpace)
 {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    float closestDepth = texture(shadowMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
     float bias = 0.006;
     float shadow = 0.0;
-	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-	for (int x = -1; x <= 1; x++) {
-    	for (int y = -1; y <= 1; y++) {
-        	float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-        	shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
-    	}    
-	}
-	shadow /= 9.0;
-    if(projCoords.z > 1.0)
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 9.0;
+    if (projCoords.z > 1.0)
         shadow = 0.0;
     return shadow;
 }
@@ -54,33 +55,33 @@ void main()
 {
     // ambient
     vec3 ambient = light.ambient * material.ambient;
-  	
+
     //add border
     if (cube) {
         bool right = abs(ModelPos.x) >= 0.49;
         bool top = abs(ModelPos.y) >= 0.49;
         bool back = abs(ModelPos.z) >= 0.49;
         if (right ? (top || back) : (top && back))
-           ambient = vec3(0.15, 0.15, 0.15);
+            ambient = vec3(0.15, 0.15, 0.15);
     }
 
-    // diffuse 
+    // diffuse
     vec3 norm = normalize(Normal);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = light.diffuse * (diff * material.diffuse);
-    
+
     // specular
     vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);  
+    vec3 reflectDir = reflect(-lightDir, norm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    vec3 specular = light.specular * (spec * material.specular);  
+    vec3 specular = light.specular * (spec * material.specular);
 
     float shadow = calculateShadow(FragPosLightSpace);
-        
+
     vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
     FragColor = vec4(result, 1.0);
 
     //make it the same color as background if below plate
     if (FragPos.y < -0.5)
         FragColor = vec4(0.1);
-} 
+}

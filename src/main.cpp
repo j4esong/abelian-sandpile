@@ -21,12 +21,11 @@
 int screenWidth = 1200;
 int screenHeight = 675;
 
-//initial camera settings
+//initial settings
 Camera camera(glm::vec3(-6.5f, 10.0f, -6.5f), 45.0f, 0.0f);
-
-//directional lighting
 const glm::vec3 lightDir(1.2f, 2.5f, 2.0f);
 
+//mouse variables
 float lastX = screenWidth / 2.0;
 float lastY = screenHeight / 2.0;
 bool mouseMoved = false;
@@ -64,7 +63,7 @@ std::vector<float> capacityData;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window, double deltaTime);
 void renderCube();
 void renderScene(const Shader &shader, const Sandpile &pile);
@@ -228,6 +227,7 @@ int main()
 					}
 					plateImage = pile.plate;
 				} else {
+					//end of update: change to next update
 					plateImage = pile.plate;
 					pile.update();
 					currentFrame = 0;
@@ -316,7 +316,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 	camera.processMouseMovement(xoffset, yoffset);
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
 		mouseFocused = !mouseFocused;
@@ -497,11 +497,11 @@ void renderGUI(Sandpile &pile)
 		maxDrops = INT_MAX;
 	}
 
-	if (ImGui::Button("Clear"))
+	if (ImGui::Button("clear"))
 		reset(pile, false, false);
 
 	ImGui::SameLine();
-	if (ImGui::Button("Randomize"))
+	if (ImGui::Button("randomize"))
 		reset(pile, true, false);
 
 	ImGui::SliderInt("frames", &tempAnimationFrames, 1, 20);
@@ -545,7 +545,7 @@ void updateLightSpace(Shader &a, Shader &b)
 	                        glm::vec3(0.0, 1.0, 0.0));
 	lightSpaceMatrix = lightProjection * lightView;
 
-	//set lightspace matrices
+	//set light space matrices
 	a.use();
 	a.setMat4(lightSpaceMatrix, "lightSpaceMatrix");
 	b.use();
