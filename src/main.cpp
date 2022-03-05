@@ -14,6 +14,13 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <filesystem>
+
+#if defined _WIN64 || defined _WIN32
+#include <windows.h>
+#elif
+#include <unistd.h>
+#endif
 
 #include "shader.hpp"
 #include "camera.hpp"
@@ -65,7 +72,7 @@ int plateWidth, plateHeight;
 
 //data tracking
 std::vector<int> sizeData;
-std::string lastReset = "clear";
+std::string lastReset = "cleared";
 int centerCount = 0;
 int randomCount = 0;
 
@@ -79,6 +86,7 @@ void renderGUI(Sandpile &pile);
 void updateLightSpace(Shader &a, Shader &b);
 void reset(Sandpile &pile, bool rand, bool resize);
 void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &pile);
+std::filesystem::path getExeDirectory();
 
 int main()
 {
@@ -173,13 +181,17 @@ int main()
 	pile.fillValue(0);
 	plateImage = pile.plate;
 
+	//get relative filepaths to resources from exe
+	std::string playDir = getExeDirectory().parent_path().string() + "\\res\\play.png";
+	std::string pauseDir = getExeDirectory().parent_path().string() + "\\res\\pause.png";
+
 	//create button textures
 	glGenTextures(1, &playTexture);
 	glBindTexture(GL_TEXTURE_2D, playTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	int width, height, nrChannels;
-	unsigned char *playData = stbi_load("res/play.png", &width, &height, &nrChannels, 0);
+	unsigned char *playData = stbi_load(playDir.c_str(), &width, &height, &nrChannels, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, playData);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	stbi_image_free(playData);
@@ -188,7 +200,7 @@ int main()
 	glBindTexture(GL_TEXTURE_2D, pauseTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	unsigned char *pauseData = stbi_load("res/pause.png", &width, &height, &nrChannels, 0);
+	unsigned char *pauseData = stbi_load(pauseDir.c_str(), &width, &height, &nrChannels, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pauseData);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	stbi_image_free(pauseData);
@@ -662,4 +674,19 @@ void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &p
 		fs << row << "\t" << pair.first << "\t" << pair.second << "\n";
 	}
 	fs.close();
+}
+
+std::filesystem::path getExeDirectory()
+{
+#if defined _WIN64 || defined _WIN32
+	wchar_t szPath[MAX_PATH];
+	GetModuleFileNameW(NULL, szPath, MAX_PATH);
+#else
+	char szPath[PATH_MAX];
+	ssize_t count = readlink("/proc/self/exe", szPath, PATH_MAX);
+	if (count < 0 || count >= PATH_MAX)
+		return {};
+	szPath[count] = '\0';
+#endif
+	return std::filesystem::path(szPath).parent_path();
 }
