@@ -1,7 +1,7 @@
 
 script.dir <- dirname(sys.frame(1)$ofile)
-freqDist <- read.table(paste(script.dir, "/freqDist.txt", sep = ""))
-simFileName <- paste(script.dir, "/simInfo.txt", sep = "")
+freqDist <- read.table(paste(script.dir, "/asp_freqDist.txt", sep = ""))
+simFileName <- paste(script.dir, "/asp_simInfo.txt", sep = "")
 connection <- file(simFileName, open = "r")
 simInfo <- readLines(connection)
 

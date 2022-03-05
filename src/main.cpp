@@ -363,7 +363,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+	if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
 		mouseFocused = !mouseFocused;
 		if (mouseFocused) {
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -649,7 +649,7 @@ void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &p
 		}
 	}
 	std::ofstream fs;
-	fs.open("simInfo.txt", std::ios::out | std::ios::trunc);
+	fs.open("asp_simInfo.txt", std::ios::out | std::ios::trunc);
 	if (!fs) {
 		std::cerr << "Could not open the output file." << std::endl;
 		return;
@@ -662,7 +662,7 @@ void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &p
 	   << centerCount << "\n"
 	   << randomCount << "\n";
 	fs.close();
-	fs.open("freqDist.txt", std::ios::out | std::ios::trunc);
+	fs.open("asp_freqDist.txt", std::ios::out | std::ios::trunc);
 	fs << "\tSize\tFreq.\n";
 	if (!fs) {
 		std::cerr << "Could not open the output file." << std::endl;
