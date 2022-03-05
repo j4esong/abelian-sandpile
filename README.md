@@ -41,4 +41,4 @@ Can be used to resize the sandpile plate. Note that resizing the plate will clea
 - shadow quality gets very bad if the dimensions are high, so height and width are capped at 100.
 
 ## demo
-[](/res/sandpiledemo.png)
+[Image](res/sandpiledemo.png)
