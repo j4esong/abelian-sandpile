@@ -12,6 +12,7 @@ A 3D simulation of the sandpile group made with OpenGL.
 ### other
 <kbd>Q</kbd>: toggle cursor (for looking around/changing settings/maximizing)  
 <kbd>P</kbd>: toggle pause  
+<kbd>esc</kbd>: exit application
 
 ## interface
 The interface is built with ImGui, and is much less intrusive if the application is fullscreened.
@@ -25,16 +26,19 @@ Can be disabled to allow for fast data collection. It can only be disabled if bo
 #### `center`
 Toggles whether the sand is dropped in the center or in a random cell.
 #### `highlight`
-Toggles whether or not to highlight the collapsing (*n* >= 4) cells.
+Toggles whether or not to highlight the collapsing (n >= 4) cells.
 #### `infinite`
 Toggles whether or not the simulation should continue infinitely. If disabled, an additional field `drops` for the number of maximum drops appears.
 #### `clear`, `randomize`
 Clears or randomizes the sandpile, resetting the number of drops and recorded size data.
 #### `frames`
-Controls how many frames of animation are given to each update, where 1 means no animation.
+Controls how many frames of animation are given to each update, where 1 means no animation. Changing this value will pause the simulation.
 #### `width`, `height`
 Can be used to resize the sandpile plate. Note that resizing the plate will clear it first and also reset the drop count.
 
 ## notes
 - the simulation is capped at slightly above 60 FPS to reduce CPU usage. However, if `display` is turned off, CPU usage will spike.
 - shadow quality gets very bad if the dimensions are high, so height and width are capped at 100.
+
+## demo
+[!demo](/res/sandpiledemo.png)
