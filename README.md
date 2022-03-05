@@ -40,5 +40,6 @@ Can be used to resize the sandpile plate. Note that resizing the plate will clea
 - the simulation is capped at slightly above 60 FPS to reduce CPU usage. However, if `display` is turned off, CPU usage will spike.
 - shadow quality gets very bad if the dimensions are high, so height and width are capped at 100.
 
-## demo
+## some images
 ![img](https://github.com/sevenkyus/abelian-sandpile/blob/main/res/sandpiledemo.png?raw=true)
+![img](https://github.com/sevenkyus/abelian-sandpile/blob/main/res/plotdemo.png?raw=true)
