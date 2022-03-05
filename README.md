@@ -20,4 +20,4 @@ A 3D simulation of the sandpile group made with OpenGL.
 - \"frames\" refers to how many frames of animation are given to each update, where 1 means no animation
 
 ## data exporting
-The data is exported as both a .pdf with the graphs of the avalanche size distribution, as well as a plain text file that contains the same data in table format, which is easily plottable in R.
+The data is exported as a plain text file (`freqDist.txt`). It can be plotted and exported to PDF using `plot.R`, assuming that R is already installed.
