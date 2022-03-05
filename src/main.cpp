@@ -11,6 +11,7 @@
 #include <thread>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <map>
 
@@ -213,6 +214,8 @@ int main()
 		//check max drop
 		if (pile.drops >= maxDrops) {
 			pauseOnNextUpdate = true;
+			//data collection is offset by one (collects data on last drop on the beginning of next)
+			sizeData.push_back(pile.size);
 		}
 
 		//update animation
@@ -235,18 +238,17 @@ int main()
 				} else {
 					//end of update: change to next update
 					plateImage = pile.plate;
-					//if about to drop get size data afterwards (after first update affectedCells is not empty)
+					//if about to drop next get size data (assuming there has already been at least 1 drop)
 					if (pile.affectedCells.size() == 0) {
-						pile.update();
-						sizeData.push_back(pile.size);
-						//count type of drop
+						//record pile size and type of drop
+						if (pile.drops != 0)
+							sizeData.push_back(pile.size);
 						if (pile.center)
 							centerCount++;
 						else
 							randomCount++;
-					} else {
-						pile.update();
 					}
+					pile.update();
 					currentFrame = 0;
 				}
 			} else {
@@ -586,10 +588,10 @@ void reset(Sandpile &pile, bool rand, bool resize)
 		pauseOnNextUpdate = true;
 	if (rand) {
 		pile.fillRand();
-		lastReset = "randomize";
+		lastReset = "randomized";
 	} else {
 		pile.fillValue(0);
-		lastReset = "clear";
+		lastReset = "cleared";
 	}
 	centerCount = 0;
 	randomCount = 0;
@@ -607,22 +609,30 @@ void exportFrequencyDistribution(const std::vector<int> &data, const Sandpile &p
 			dist[i]++;
 		}
 	}
-	std::ofstream fs("sizeFreq.txt");
+	std::ofstream fs;
+	fs.open("simInfo.txt", std::ios::out | std::ios::trunc);
 	if (!fs) {
-		std::cout << "Could not open the output file." << std::endl;
+		std::cerr << "Could not open the output file." << std::endl;
 		return;
 	}
+	//store the simulation environment data in a separate file
 	fs << lastReset << "\n"
 	   << pile.width << "\n"
 	   << pile.height << "\n"
 	   << pile.drops << "\n"
 	   << centerCount << "\n"
 	   << randomCount << "\n";
+	fs.close();
+	fs.open("freqDist.txt", std::ios::out | std::ios::trunc);
 	fs << "\tSize\tFreq.\n";
+	if (!fs) {
+		std::cerr << "Could not open the output file." << std::endl;
+		return;
+	}
 	int row = 0;
 	for (auto &pair : dist) {
 		row++;
 		fs << row << "\t" << pair.first << "\t" << pair.second << "\n";
 	}
-
+	fs.close();
 }

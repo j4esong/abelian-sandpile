@@ -4,4 +4,5 @@
 /*.frag
 /*.vert
 /*.ini
-.txt
+*.txt
+*.pdf
