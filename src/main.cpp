@@ -176,7 +176,7 @@ int main()
 	//configure camera values
 	camera.moveSpeed = 10.0;
 
-	//initialize image to nothing and sandpile object to random pile
+	//initialize image and sandpile object to cleared plate
 	Sandpile pile(20, 20);
 	pile.fillValue(0);
 	plateImage = pile.plate;
