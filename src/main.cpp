@@ -40,6 +40,8 @@ bool highlight = false;
 bool infinite = true;
 bool pauseOnNextUpdate = false;
 bool resizeOnNextUpdate = false;
+bool display = true;
+bool tempDisplay = true;
 int maxDrops = 10;
 int tempAnimationFrames = 5;
 int tempPlateWidth = 20;
@@ -212,16 +214,22 @@ int main()
 		processInput(window, deltaTime);
 
 		//check max drop
-		if (pile.drops >= maxDrops) {
+		if (pile.drops >= maxDrops && !pause) {
 			pauseOnNextUpdate = true;
 			//data collection is offset by one (collects data on last drop on the beginning of next)
 			sizeData.push_back(pile.size);
+			if (!display) {
+				display = true;
+				tempDisplay = true;
+				animationFrames = tempAnimationFrames;
+				currentFrame = animationFrames - 1;
+			}
 		}
 
 		//update animation
 		if (!pause) {
 			if (currentFrame == animationFrames - 1) {
-				//animation is ending and pause is queued -> stay at end of animation under old animationFrames and don't update
+				//animation is ending and pause is queued -> stay at end of animation under old animationFrames (tempAnimationFrames) and don't update
 				if (pauseOnNextUpdate || resizeOnNextUpdate) {
 					pause = true;
 					pauseOnNextUpdate = false;
@@ -234,13 +242,13 @@ int main()
 						pile.resize();
 						updateLightSpace(simpleDepthShader, lightingShader);
 					}
+					//sync plate image with plate
 					plateImage = pile.plate;
 				} else {
-					//end of update: change to next update
+					//normal end of update: change to next update
 					plateImage = pile.plate;
-					//if about to drop next get size data (assuming there has already been at least 1 drop)
+					//if about to drop next get size data & drop type data (assuming there has already been at least 1 drop)
 					if (pile.affectedCells.size() == 0) {
-						//record pile size and type of drop
 						if (pile.drops != 0)
 							sizeData.push_back(pile.size);
 						if (pile.center)
@@ -256,45 +264,52 @@ int main()
 			}
 		}
 
-		//render scene from light's point of view
-		simpleDepthShader.use();
+		if (display || pause) {
+			//render scene from light's point of view
+			simpleDepthShader.use();
 
-		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
+			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+			glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+			glClear(GL_DEPTH_BUFFER_BIT);
 
-		renderScene(simpleDepthShader, pile);
+			renderScene(simpleDepthShader, pile);
 
-		//reset viewport
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, screenWidth, screenHeight);
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//reset viewport
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glViewport(0, 0, screenWidth, screenHeight);
+			glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//render normally
-		lightingShader.use();
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) screenWidth / (float) screenHeight, 0.1f, 200.0f);
-		glm::mat4 view = camera.getViewMatrix();
-		lightingShader.setMat4(projection, "projection");
-		lightingShader.setMat4(view, "view");
-		lightingShader.setVec3(camera.pos, "viewPos");
+			//render normally
+			lightingShader.use();
+			glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) screenWidth / (float) screenHeight, 0.1f, 200.0f);
+			glm::mat4 view = camera.getViewMatrix();
+			lightingShader.setMat4(projection, "projection");
+			lightingShader.setMat4(view, "view");
+			lightingShader.setVec3(camera.pos, "viewPos");
 
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, depthMap);
 
-		renderScene(lightingShader, pile);
+			renderScene(lightingShader, pile);
+		}
 
 		//render GUI & event polling
-		renderGUI(pile);
+		if (display || pause)
+			renderGUI(pile);
+
 		glfwPollEvents();
 
 		//delay, to cap fps
 		double endTime = glfwGetTime();
 		double renderTime = endTime - startTime;
 		int delayTime = (msPerFrame - 1) - ((int) (renderTime * 1000));
-		std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
 
-		glfwSwapBuffers(window);
+		if (display)
+			std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
+
+		if (display || pause)
+			glfwSwapBuffers(window);
 	}
 
 	//clean up
@@ -504,6 +519,18 @@ void renderGUI(Sandpile &pile)
 	ImGui::SameLine();
 	if (ImGui::Button("export data")) {
 		exportFrequencyDistribution(sizeData, pile);
+	}
+
+	ImGui::SameLine();
+	ImGui::Checkbox("display", &tempDisplay);
+	if (tempDisplay != display) {
+		if (pause && !infinite) {
+			display = tempDisplay;
+			currentFrame = 0;
+			animationFrames = 1;
+		} else {
+			tempDisplay = display;
+		}
 	}
 
 	ImGui::Checkbox("center", &pile.center);
