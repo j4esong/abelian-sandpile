@@ -41,4 +41,4 @@ Can be used to resize the sandpile plate. Note that resizing the plate will clea
 - shadow quality gets very bad if the dimensions are high, so height and width are capped at 100.
 
 ## demo
-[Image](/res/sandpiledemo.png?raw=true)
+![img](https://github.com/sevenkyus/abelian-sandpile/main/res/sandpiledemo.png?raw=true)
